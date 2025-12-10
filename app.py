@@ -744,6 +744,8 @@ if "auto_refresh_interval_seconds" not in st.session_state:
     st.session_state.auto_refresh_interval_seconds = 0
 if "last_auto_refresh_time" not in st.session_state:
     st.session_state.last_auto_refresh_time = time.time()
+if "autorefresh_running" not in st.session_state:
+    st.session_state.autorefresh_running = False
 
 # ============= LOAD DATA =============
 expected_cols = ["ts", "device", "temp", "hum", "gas", "ai"]
@@ -1096,13 +1098,46 @@ with control_col:
     
     st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
 
-    # ===== Auto-refresh selector (new) =====
-    # This selectbox stores a human-friendly option and the app maps it to seconds.
-    auto_option = st.selectbox("Auto-refresh", ("Off", "5s", "15s", "30s", "60s"), index=("Off", "5s", "15s", "30s", "60s").index(st.session_state.get("auto_refresh_option", "Off")), key="auto_refresh_option", label_visibility="collapsed")
-    # Mapping option -> seconds
-    mapping = {"Off": 0, "5s": 5, "15s": 15, "30s": 30, "60s": 60}
-    # update stored seconds (widget persists across reruns)
-    st.session_state.auto_refresh_interval_seconds = mapping.get(auto_option, 0)
+    # ===== Auto-refresh controls (new robust button-based approach) =====
+    st.markdown("<div style='margin-top:0.4rem; margin-bottom:0.6rem;'><strong style='color:#2dd9ce;'>Auto-refresh controls</strong></div>", unsafe_allow_html=True)
+
+    # Keep the selectable interval
+    auto_option = st.selectbox("Interval", ("5s", "15s", "30s", "60s"), index=("5s", "15s", "30s", "60s").index("15s"), key="auto_refresh_option", label_visibility="collapsed")
+    mapping = {"5s": 5, "15s": 15, "30s": 30, "60s": 60}
+    st.session_state.auto_refresh_interval_seconds = mapping.get(auto_option, 15)
+
+    # Display current auto-refresh status
+    if st.session_state.autorefresh_running:
+        st.markdown(f"<div style='padding:0.4rem; border-radius:8px; background:rgba(29,184,160,0.06); margin-bottom:0.5rem;'>🔁 <strong style='color:#26d0ce;'>Auto-refresh running</strong> — interval: {st.session_state.auto_refresh_interval_seconds}s</div>", unsafe_allow_html=True)
+        if st.button("⏹️ STOP AUTO-REFRESH", key="stop_autorefresh"):
+            st.session_state.autorefresh_running = False
+            st.success("Auto-refresh stopped")
+            # Immediately re-run to update UI state
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
+    else:
+        if st.button("▶️ START AUTO-REFRESH", key="start_autorefresh"):
+            if st.session_state.auto_refresh_interval_seconds <= 0:
+                st.error("Pilih interval valid sebelum memulai.")
+            else:
+                st.session_state.autorefresh_running = True
+                st.session_state.last_auto_refresh_time = time.time()
+                st.success("Auto-refresh started")
+                # Immediately re-run to start the loop with the new state
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
+
+    # Force refresh button for immediate update
+    if st.button("🔁 REFRESH NOW", key="refresh_now"):
+        st.session_state.last_auto_refresh_time = time.time()
+        try:
+            st.experimental_rerun()
+        except Exception:
+            pass
 
     # Show last refresh info
     last_refresh_display = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time())).strftime("%Y-%m-%d %H:%M:%S")
@@ -1121,30 +1156,26 @@ with control_col:
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ============= AUTOREFRESH LOGIC ============
-# Implement auto-refresh using st.experimental_rerun and session_state timestamps.
-# The selector above sets st.session_state.auto_refresh_interval_seconds. We check the elapsed time
-# and call st.experimental_rerun() to refresh the whole Streamlit script when the interval has passed.
-try:
-    interval = int(st.session_state.get("auto_refresh_interval_seconds", 0))
-except Exception:
-    interval = 0
-
-if interval and interval > 0:
-    now = time.time()
-    last = st.session_state.get("last_auto_refresh_time", 0)
-    # Only trigger a rerun when the interval has passed since the stored timestamp.
-    if now - last >= interval:
-        # update last timestamp immediately so a rerun won't re-trigger repeatedly
-        st.session_state["last_auto_refresh_time"] = now
-        # st.experimental_rerun triggers a controlled script rerun (Streamlit API)
+# ============= AUTOREFRESH LOOP (start/stop button drives this) ============
+# This loop uses session state flags and time.sleep + st.experimental_rerun.
+# Note: this will keep the session's worker occupied during sleep; it's a
+# straightforward and robust approach to ensure the UI updates periodically.
+if st.session_state.get("autorefresh_running", False):
+    interval = int(st.session_state.get("auto_refresh_interval_seconds", 0) or 0)
+    if interval > 0:
+        # Wait for the interval then trigger a rerun so the app reloads sensor values.
+        # Update the last timestamp immediately before sleeping to avoid double-trigger on rerun.
+        st.session_state["last_auto_refresh_time"] = time.time()
+        # Short visual hint for users (non-blocking UI parts have already been rendered for this run)
         try:
+            time.sleep(interval)
             st.experimental_rerun()
         except Exception as e:
-            # If for some reason experimental_rerun is unavailable, fallback is to do nothing.
-            print("autorefresh: st.experimental_rerun() failed:", e)
+            # If sleep or rerun fails for any reason, stop autorefresh to avoid runaway behavior.
+            st.session_state.autorefresh_running = False
+            print("Auto-refresh loop error, stopping autorefresh:", e)
 
 # ============= FOOTER ============
-st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | Modern Dark Theme with Tosca Accent ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
