@@ -1176,6 +1176,7 @@ if st.session_state.get("autorefresh_running", False):
             print("Auto-refresh loop error, stopping autorefresh:", e)
 
 # ============= FOOTER ============
-st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | Modern Dark Theme with Tosca Accent ✨</p></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
+
