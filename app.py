@@ -737,6 +737,14 @@ if "chatbot" not in st.session_state:
 if "medicine_schedules" not in st.session_state:
     st.session_state.medicine_schedules = []
 
+# Initialize autorefresh session keys (safe defaults)
+if "auto_refresh_option" not in st.session_state:
+    st.session_state.auto_refresh_option = "Off"
+if "auto_refresh_interval_seconds" not in st.session_state:
+    st.session_state.auto_refresh_interval_seconds = 0
+if "last_auto_refresh_time" not in st.session_state:
+    st.session_state.last_auto_refresh_time = time.time()
+
 # ============= LOAD DATA =============
 expected_cols = ["ts", "device", "temp", "hum", "gas", "ai"]
 
@@ -1087,6 +1095,18 @@ with control_col:
     """, unsafe_allow_html=True)
     
     st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
+
+    # ===== Auto-refresh selector (new) =====
+    # This selectbox stores a human-friendly option and the app maps it to seconds.
+    auto_option = st.selectbox("Auto-refresh", ("Off", "5s", "15s", "30s", "60s"), index=("Off", "5s", "15s", "30s", "60s").index(st.session_state.get("auto_refresh_option", "Off")), key="auto_refresh_option", label_visibility="collapsed")
+    # Mapping option -> seconds
+    mapping = {"Off": 0, "5s": 5, "15s": 15, "30s": 30, "60s": 60}
+    # update stored seconds (widget persists across reruns)
+    st.session_state.auto_refresh_interval_seconds = mapping.get(auto_option, 0)
+
+    # Show last refresh info
+    last_refresh_display = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time())).strftime("%Y-%m-%d %H:%M:%S")
+    st.markdown(f"<div style='margin-top:0.6rem;'><small style='color:#26d0ce;'>Last refresh: {last_refresh_display}</small></div>", unsafe_allow_html=True)
     
     if os.path.exists(CSV_PATH):
         with open(CSV_PATH, "rb") as f:
@@ -1101,7 +1121,30 @@ with control_col:
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ============= FOOTER =============
-st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | Modern Dark Theme with Tosca Accent ✨</p></div>", unsafe_allow_html=True)
+# ============= AUTOREFRESH LOGIC ============
+# Implement auto-refresh using st.experimental_rerun and session_state timestamps.
+# The selector above sets st.session_state.auto_refresh_interval_seconds. We check the elapsed time
+# and call st.experimental_rerun() to refresh the whole Streamlit script when the interval has passed.
+try:
+    interval = int(st.session_state.get("auto_refresh_interval_seconds", 0))
+except Exception:
+    interval = 0
+
+if interval and interval > 0:
+    now = time.time()
+    last = st.session_state.get("last_auto_refresh_time", 0)
+    # Only trigger a rerun when the interval has passed since the stored timestamp.
+    if now - last >= interval:
+        # update last timestamp immediately so a rerun won't re-trigger repeatedly
+        st.session_state["last_auto_refresh_time"] = now
+        # st.experimental_rerun triggers a controlled script rerun (Streamlit API)
+        try:
+            st.experimental_rerun()
+        except Exception as e:
+            # If for some reason experimental_rerun is unavailable, fallback is to do nothing.
+            print("autorefresh: st.experimental_rerun() failed:", e)
+
+# ============= FOOTER ============
+st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
