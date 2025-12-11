@@ -737,15 +737,12 @@ if "chatbot" not in st.session_state:
 if "medicine_schedules" not in st.session_state:
     st.session_state.medicine_schedules = []
 
-# Initialize autorefresh session keys (safe defaults)
-if "auto_refresh_option" not in st.session_state:
-    st.session_state.auto_refresh_option = "Off"
-if "auto_refresh_interval_seconds" not in st.session_state:
-    st.session_state.auto_refresh_interval_seconds = 0
-if "last_auto_refresh_time" not in st.session_state:
-    st.session_state.last_auto_refresh_time = time.time()
+# Initialize auto-refresh session state
 if "autorefresh_running" not in st.session_state:
     st.session_state.autorefresh_running = False
+
+if "last_auto_refresh_time" not in st.session_state:
+    st.session_state.last_auto_refresh_time = time.time()
 
 # ============= LOAD DATA =============
 expected_cols = ["ts", "device", "temp", "hum", "gas", "ai"]
@@ -1154,4 +1151,5 @@ if st.session_state.get("autorefresh_running", False):
 st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
+
 
