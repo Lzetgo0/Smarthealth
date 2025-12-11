@@ -1095,61 +1095,64 @@ with control_col:
     
     st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
 
-        # ===== AUTO-REFRESH CONTROLS (MODERN & RESPONSIVE) =====
-    st.markdown("<div style='margin-top:0.4rem; margin-bottom:0.6rem;'><strong style='color:#2dd9ce;'>🔄 Auto-Refresh</strong></div>", unsafe_allow_html=True)
+        # ===== AUTO REFRESH CONTROL (ONE-CLICK TOGGLE) =====
+    st.markdown("<div class='control-panel-glass'>", unsafe_allow_html=True)
+    st.markdown("<div class='control-section-title'>🔄 Auto Refresh</div>", unsafe_allow_html=True)
 
-    col_start, col_stop = st.columns(2)
+    # Tombol toggle dalam satu baris
+    col_on, col_off = st.columns(2)
 
-    with col_start:
-        if st.button("▶️ START", key="start_autorefresh", use_container_width=True):
+    with col_on:
+        if st.button("▶️ AKTIFKAN", key="enable_autorefresh", use_container_width=True):
             st.session_state.autorefresh_running = True
             st.session_state.last_auto_refresh_time = time.time()
-            st.success("Auto-refresh diaktifkan")
+            st.success("Auto refresh diaktifkan")
             st.rerun()
 
-    with col_stop:
-        if st.button("⏹️ STOP", key="stop_autorefresh", use_container_width=True):
+    with col_off:
+        if st.button("⏹️ MATIKAN", key="disable_autorefresh", use_container_width=True):
             st.session_state.autorefresh_running = False
-            st.success("Auto-refresh dihentikan")
+            st.success("Auto refresh dimatikan")
             st.rerun()
 
-    # Force manual refresh
-    if st.button("🔁 REFRESH SEKARANG", key="refresh_now", use_container_width=True):
-        st.session_state.last_auto_refresh_time = time.time()
-        st.rerun()
+    # Indikator status
+    if st.session_state.get("autorefresh_running", False):
+        status = "🟢 BERJALAN"
+        color = "#1db8a0"
+        freq_info = "~2 detik sekali"
+    else:
+        status = "🔴 BERHENTI"
+        color = "#f44336"
+        freq_info = "-"
 
-    # Status indicator
-    status_text = "🟢 BERJALAN" if st.session_state.get("autorefresh_running", False) else "🔴 BERHENTI"
-    status_color = "#1db8a0" if st.session_state.get("autorefresh_running", False) else "#f44336"
     st.markdown(f"""
-    <div style='padding:0.8rem; border-radius:12px; background:rgba(29,184,160,0.1); margin:0.8rem 0; text-align:center;'>
-        <strong style='color:{status_color}; font-size:1rem;'>Status: {status_text}</strong>
+    <div style='text-align:center; padding:1rem; background:rgba(29,184,160,0.08); border-radius:12px; margin:1rem 0;'>
+        <strong style='font-size:1.1rem; color:{color};'>{status}</strong><br>
+        <small style='color:#26d0ce;'>Update otomatis: {freq_info}</small>
     </div>
     """, unsafe_allow_html=True)
 
-    # Last refresh time
-    last_refresh_display = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time())).strftime("%H:%M:%S")
-    st.markdown(f"<small style='color:#26d0ce; display:block; text-align:center;'>Terakhir diupdate: {last_refresh_display}</small>", unsafe_allow_html=True)
+    # Waktu update terakhir
+    last_time = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time()))
+    st.markdown(f"<small style='display:block; text-align:center; color:#26d0ce;'>Terakhir update: {last_time.strftime('%H:%M:%S')}</small>", unsafe_allow_html=True)
 
-    # Hapus semua selectbox interval karena sekarang tanpa batas waktu tetap
-    # Kita akan refresh secepat mungkin (setiap ~2 detik)
-
-# ============= AUTO-REFRESH LOOP (NON-BLOCKING, RESPONSIVE) =============
+    st.markdown("</div>", unsafe_allow_html=True)
+# ============= AUTO REFRESH LOOP OTOMATIS (NON-BLOCKING) =============
+# Hanya jalankan jika mode auto refresh aktif
 if st.session_state.get("autorefresh_running", False):
-    # Update timestamp setiap kali rerun
     now = time.time()
-    last_time = st.session_state.get("last_auto_refresh_time", now)
+    last_refresh = st.session_state.get("last_auto_refresh_time", now)
 
-    # Refresh setiap ~2 detik (bisa diubah ke 1 atau 3 jika perlu)
-    REFRESH_INTERVAL = 2  # detik
+    # Refresh setiap 2 detik (bisa diubah ke 1 atau 3 jika mau lebih cepat/lambat)
+    REFRESH_EVERY_SECONDS = 2
 
-    if now - last_time >= REFRESH_INTERVAL:
+    if now - last_refresh >= REFRESH_EVERY_SECONDS:
         st.session_state.last_auto_refresh_time = now
-        # Trigger rerun otomatis
         st.rerun()
 # ============= FOOTER ============
 st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
+
 
 
