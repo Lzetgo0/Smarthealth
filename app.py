@@ -1098,84 +1098,60 @@ with control_col:
     
     st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
 
-    # ===== Auto-refresh controls (new robust button-based approach) =====
-    st.markdown("<div style='margin-top:0.4rem; margin-bottom:0.6rem;'><strong style='color:#2dd9ce;'>Auto-refresh controls</strong></div>", unsafe_allow_html=True)
+        # ===== AUTO-REFRESH CONTROLS (MODERN & RESPONSIVE) =====
+    st.markdown("<div style='margin-top:0.4rem; margin-bottom:0.6rem;'><strong style='color:#2dd9ce;'>🔄 Auto-Refresh</strong></div>", unsafe_allow_html=True)
 
-    # Keep the selectable interval
-    auto_option = st.selectbox("Interval", ("5s", "15s", "30s", "60s"), index=("5s", "15s", "30s", "60s").index("15s"), key="auto_refresh_option", label_visibility="collapsed")
-    mapping = {"5s": 5, "15s": 15, "30s": 30, "60s": 60}
-    st.session_state.auto_refresh_interval_seconds = mapping.get(auto_option, 15)
+    col_start, col_stop = st.columns(2)
 
-    # Display current auto-refresh status
-    if st.session_state.autorefresh_running:
-        st.markdown(f"<div style='padding:0.4rem; border-radius:8px; background:rgba(29,184,160,0.06); margin-bottom:0.5rem;'>🔁 <strong style='color:#26d0ce;'>Auto-refresh running</strong> — interval: {st.session_state.auto_refresh_interval_seconds}s</div>", unsafe_allow_html=True)
-        if st.button("⏹️ STOP AUTO-REFRESH", key="stop_autorefresh"):
+    with col_start:
+        if st.button("▶️ START", key="start_autorefresh", use_container_width=True):
+            st.session_state.autorefresh_running = True
+            st.session_state.last_auto_refresh_time = time.time()
+            st.success("Auto-refresh diaktifkan")
+            st.rerun()
+
+    with col_stop:
+        if st.button("⏹️ STOP", key="stop_autorefresh", use_container_width=True):
             st.session_state.autorefresh_running = False
-            st.success("Auto-refresh stopped")
-            # Immediately re-run to update UI state
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
-    else:
-        if st.button("▶️ START AUTO-REFRESH", key="start_autorefresh"):
-            if st.session_state.auto_refresh_interval_seconds <= 0:
-                st.error("Pilih interval valid sebelum memulai.")
-            else:
-                st.session_state.autorefresh_running = True
-                st.session_state.last_auto_refresh_time = time.time()
-                st.success("Auto-refresh started")
-                # Immediately re-run to start the loop with the new state
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
+            st.success("Auto-refresh dihentikan")
+            st.rerun()
 
-    # Force refresh button for immediate update
-    if st.button("🔁 REFRESH NOW", key="refresh_now"):
+    # Force manual refresh
+    if st.button("🔁 REFRESH SEKARANG", key="refresh_now", use_container_width=True):
         st.session_state.last_auto_refresh_time = time.time()
-        try:
-            st.experimental_rerun()
-        except Exception:
-            pass
+        st.rerun()
 
-    # Show last refresh info
-    last_refresh_display = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time())).strftime("%Y-%m-%d %H:%M:%S")
-    st.markdown(f"<div style='margin-top:0.6rem;'><small style='color:#26d0ce;'>Last refresh: {last_refresh_display}</small></div>", unsafe_allow_html=True)
-    
-    if os.path.exists(CSV_PATH):
-        with open(CSV_PATH, "rb") as f:
-            st.download_button(
-                "📥 DOWNLOAD",
-                f,
-                file_name=f"data_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="download_csv"
-            )
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Status indicator
+    status_text = "🟢 BERJALAN" if st.session_state.get("autorefresh_running", False) else "🔴 BERHENTI"
+    status_color = "#1db8a0" if st.session_state.get("autorefresh_running", False) else "#f44336"
+    st.markdown(f"""
+    <div style='padding:0.8rem; border-radius:12px; background:rgba(29,184,160,0.1); margin:0.8rem 0; text-align:center;'>
+        <strong style='color:{status_color}; font-size:1rem;'>Status: {status_text}</strong>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ============= AUTOREFRESH LOOP (start/stop button drives this) ============
-# This loop uses session state flags and time.sleep + st.experimental_rerun.
-# Note: this will keep the session's worker occupied during sleep; it's a
-# straightforward and robust approach to ensure the UI updates periodically.
+    # Last refresh time
+    last_refresh_display = datetime.fromtimestamp(st.session_state.get("last_auto_refresh_time", time.time())).strftime("%H:%M:%S")
+    st.markdown(f"<small style='color:#26d0ce; display:block; text-align:center;'>Terakhir diupdate: {last_refresh_display}</small>", unsafe_allow_html=True)
+
+    # Hapus semua selectbox interval karena sekarang tanpa batas waktu tetap
+    # Kita akan refresh secepat mungkin (setiap ~2 detik)
+
+# ============= AUTO-REFRESH LOOP (NON-BLOCKING, RESPONSIVE) =============
 if st.session_state.get("autorefresh_running", False):
-    interval = int(st.session_state.get("auto_refresh_interval_seconds", 0) or 0)
-    if interval > 0:
-        # Wait for the interval then trigger a rerun so the app reloads sensor values.
-        # Update the last timestamp immediately before sleeping to avoid double-trigger on rerun.
-        st.session_state["last_auto_refresh_time"] = time.time()
-        # Short visual hint for users (non-blocking UI parts have already been rendered for this run)
-        try:
-            time.sleep(interval)
-            st.experimental_rerun()
-        except Exception as e:
-            # If sleep or rerun fails for any reason, stop autorefresh to avoid runaway behavior.
-            st.session_state.autorefresh_running = False
-            print("Auto-refresh loop error, stopping autorefresh:", e)
+    # Update timestamp setiap kali rerun
+    now = time.time()
+    last_time = st.session_state.get("last_auto_refresh_time", now)
 
+    # Refresh setiap ~2 detik (bisa diubah ke 1 atau 3 jika perlu)
+    REFRESH_INTERVAL = 2  # detik
+
+    if now - last_time >= REFRESH_INTERVAL:
+        st.session_state.last_auto_refresh_time = now
+        # Trigger rerun otomatis
+        st.rerun()
 # ============= FOOTER ============
 st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
+
