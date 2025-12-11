@@ -1095,58 +1095,35 @@ with control_col:
     
     st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
 
-    # ===== AUTO REFRESH (ONCE-CLICK, RUN FOREVER) =====
-    st.markdown("<div class='control-panel-glass'>", unsafe_allow_html=True)
-    st.markdown("<div class='control-section-title'>🔄 Auto Refresh</div>", unsafe_allow_html=True)
+  # ================================
+#   AUTO REFRESH LOGIC (TOGGLE)
+# ================================
+if "auto_refresh" not in st.session_state:
+    st.session_state.auto_refresh = False
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ AKTIFKAN", key="enable_auto", use_container_width=True):
-            st.session_state.autorefresh_running = True
-            st.session_state.last_auto_refresh_time = time.time()
-            st.success("Auto refresh aktif — update terus-menerus")
-            st.rerun()
+col_ar1, col_ar2 = st.columns([1,4])
+with col_ar1:
+    if st.button("Auto Refresh"):
+        st.session_state.auto_refresh = not st.session_state.auto_refresh
 
-    with col2:
-        if st.button("⏹️ MATIKAN", key="disable_auto", use_container_width=True):
-            st.session_state.autorefresh_running = False
-            st.success("Auto refresh dimatikan")
-            st.rerun()
+with col_ar2:
+    st.markdown(
+        f"**Status Auto Refresh:** {'🟢 ON' if st.session_state.auto_refresh else '🔴 OFF'}"
+    )
 
-    # Status visual
-    if st.session_state.autorefresh_running:
-        st.markdown("""
-        <div style='text-align:center; padding:1rem; background:rgba(29,184,160,0.15); border-radius:12px; margin:1rem 0; border:2px solid #1db8a0;'>
-            <strong style='color:#1db8a0; font-size:1.2rem;'>🟢 SEDANG BERJALAN</strong><br>
-            <small style='color:#26d0ce;'>Dashboard otomatis update setiap ~2 detik</small>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style='text-align:center; padding:1rem; background:rgba(244,67,54,0.1); border-radius:12px; margin:1rem 0; border:2px solid #f44336;'>
-            <strong style='color:#ff7675; font-size:1.2rem;'>🔴 BERHENTI</strong>
-        </div>
-        """, unsafe_allow_html=True)
+def _auto_refresh_hook():
+    if st.session_state.auto_refresh:
+        st.rerun()
 
-    # Waktu update terakhir
-    last_update = datetime.fromtimestamp(st.session_state.last_auto_refresh_time)
-    st.caption(f"Terakhir update: {last_update.strftime('%H:%M:%S')}")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+st.session_state["_auto_refresh_hook"] = _auto_refresh_hook
 
 # ============= FOOTER ============
 st.markdown("<div class='footer-card'><p style='color: #2dd9ce; font-size: 0.85rem; margin: 0; font-weight: 700;'>✨ Smart Health Ecosystem © 2025 | So Cool ✨</p></div>", unsafe_allow_html=True)
 
 time.sleep(0.1)
 
-# ============= AUTO REFRESH BERJALAN TANPA HENTI =============
-if st.session_state.get("autorefresh_running", False):
-    now = time.time()
-    last = st.session_state.last_auto_refresh_time
-
-    # Update setiap 2 detik
-    if now - last >= 2.0:
-        st.session_state.last_auto_refresh_time = now
-        st.rerun()
-
-
+# ================================
+#   TRIGGER AUTO REFRESH
+# ================================
+if "_auto_refresh_hook" in st.session_state:
+    st.session_state["_auto_refresh_hook"]()
